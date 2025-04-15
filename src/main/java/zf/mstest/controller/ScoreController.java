@@ -13,7 +13,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/scores")
-@CrossOrigin(origins = "*") // 允许所有跨域请求
+@CrossOrigin(origins = "*")
 public class ScoreController {
 
     private final ScoreService scoreService;
