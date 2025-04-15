@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- src/main/resources/zf/mstest/mapper/PersonalScoreMapper.xml -->
+<mapper namespace="zf.mstest.mapper.PersonalScoreMapper">
+
+    <!-- 定义结果映射（可选） -->
+    <resultMap id="PersonalScoreResultMap" type="PersonalScore">
+        <id property="id" column="id" />
+        <result property="groupName" column="group_name" />
+        <result property="name" column="name" />
+        <result property="representativeUnit" column="representative_unit" />
+        <result property="registrationNumber" column="registration_number" />
+        <result property="projectCode" column="project_code" />
+        <result property="ranking" column="ranking" />
+        <result property="medal" column="medal" />
+        <result property="score" column="score" />
+    </resultMap>
+
+    <!-- 基础查询语句 -->
+    <select id="findByGroup" resultMap="PersonalScoreResultMap">
+        SELECT *
+        FROM personal_score
+        WHERE group_name = #{group}
+        ORDER BY ranking ASC
+    </select>
+
+</mapper>

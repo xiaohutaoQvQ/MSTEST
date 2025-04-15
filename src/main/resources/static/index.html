@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成绩展示系统</title>
+    <!-- 引入Element UI样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- 引入Vue和Element UI JS -->
+    <script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <!-- 引入axios用于HTTP请求 -->
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        /* 主容器样式 */
+        .container {
+            max-width: 600px;
+            margin: 10px auto;
+            padding: 20px;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        /* 主标题样式 */
+        .main-title {
+            text-align: center;
+            color: #303133;
+            font-size: 24px;
+            margin: 20px 0 30px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #409EFF;
+            display: inline-block;
+            width: 100%;
+        }
+
+        /* 选项卡容器样式 */
+        .group-filter {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        /* 成绩卡片样式 */
+        .score-card {
+            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        /* 标题样式 */
+        .section-title {
+            color: #303133;
+            border-bottom: 2px solid #409EFF;
+            padding-bottom: 8px;
+            margin: 0 0 0 0;
+            font-size: 18px;
+        }
+
+        /* 加载动画容器 */
+        .loading-wrapper {
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        /* 排名徽章样式 */
+        .rank-number {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            background: #409EFF;
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+        }
+
+        /* 奖牌颜色样式 */
+        .medal-gold { color: #FFD700; }  /* 金牌 */
+        .medal-silver { color: #C0C0C0; } /* 银牌 */
+        .medal-bronze { color: #CD7F32; } /* 铜牌 */
+
+        /* 单位信息辅助文本 */
+        .unit-info {
+            font-size: 12px;
+            color: #909399;
+            margin-top: 2px;
+        }
+        .el-card__body {
+            padding-top: 0;
+        }
+
+        /* 响应式布局 - 移动端适配 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            .main-title {
+                font-size: 20px;
+                margin: 15px 0;
+            }
+            .el-radio-button {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- Vue实例挂载点 -->
+<div id="app">
+    <div class="container">
+        <!-- 主标题 -->
+        <h1 class="main-title">公开组男子重剑成绩</h1>
+
+        <!-- 组别选择选项卡 -->
+        <div class="group-filter">
+            <!--
+                el-radio-group 组别选择器
+                v-model 双向绑定当前选中的组别
+                @change 切换组别时触发数据加载
+            -->
+            <el-radio-group v-model="activeGroup" @change="fetchData" size="medium">
+                <el-radio-button label="personalA">个人项目一</el-radio-button>
+                <el-radio-button label="personalB">个人项目二</el-radio-button>
+                <el-radio-button label="teamA">团体项目一</el-radio-button>
+                <el-radio-button label="teamB">团体项目二</el-radio-button>
+            </el-radio-group>
+        </div>
+
+        <!-- 成绩展示卡片 -->
+        <el-card class="score-card" shadow="hover">
+            <!-- 卡片标题 -->
+            <div slot="header">
+                <h2 class="section-title">{{ currentTitle }}</h2>
+            </div>
+
+            <!-- 错误提示 -->
+            <!--
+                v-if 控制错误信息显示
+                type 定义错误提示样式
+                closable 允许关闭提示
+            -->
+            <el-alert
+                    v-if="error"
+                    :title="error"
+                    type="error"
+                    show-icon
+                    closable
+                    @close="error = ''">
+            </el-alert>
+
+            <!-- 加载状态 -->
+            <!--
+                v-loading 加载动画控制
+                element-loading-text 加载提示文本
+            -->
+            <div v-loading="loading"
+                 element-loading-text="数据加载中..."
+                 class="loading-wrapper">
+
+                <!-- 成绩表格 -->
+                <!--
+                    v-if 控制表格显示
+                    :data 绑定表格数据
+                    border 添加边框
+                    stripe 斑马纹样式
+                -->
+                <el-table
+                        :data="sortedData"
+                        v-if="!loading && !error"
+                        border
+                        stripe
+                        style="width: 100%; top: -40px">
+
+                    <!-- 排名列 -->
+                    <el-table-column label="排名" width="80" align="center">
+                        <template slot-scope="scope">
+                            <i v-if="scope.row.medal === '金'||scope.row.medal === '银'||scope.row.medal === '铜'"
+                               :class="['el-icon-medal-1',
+                                   {'medal-gold': scope.row.medal === '金',
+                                    'medal-silver': scope.row.medal === '银',
+                                    'medal-bronze': scope.row.medal === '铜'}]"></i>
+
+                            <span v-if="scope.row.medal === 'null'"
+                                  :class="rank-number">{{ scope.row.ranking }}</span>
+                        </template>
+                    </el-table-column>
+
+                    <!-- 名称列（根据类型显示个人/团队） -->
+                    <el-table-column :label="isPersonal ? '姓名' : '团队名称'" width="180">
+                        <template slot-scope="scope">
+                            <div class="main-info">
+                                {{ scope.row.name || scope.row.teamName }}
+                                <!-- 单位信息 -->
+                                <div class="unit-info">{{ scope.row.unit }}</div>
+                            </div>
+                        </template>
+                    </el-table-column>
+
+                    <!-- 代表单位 -->
+                    <el-table-column label="代表单位" width="150">
+                        <template slot-scope="scope">
+                            {{ scope.row.unit }}
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </div>
+        </el-card>
+    </div>
+</div>
+
+<script>
+    new Vue({
+        el: '#app',
+        data: function() {
+            return {
+                activeGroup: 'personalA', // 当前选中的组别
+                loading: false,           // 加载状态
+                error: '',                // 错误信息
+                currentData: []           // 当前显示的数据
+            };
+        },
+        computed: {
+            /**
+             * 判断当前是否为个人成绩
+             * @return {Boolean} true-个人成绩 false-团队成绩
+             */
+            isPersonal: function() {
+                return this.activeGroup.startsWith('personal');
+            },
+            /**
+             * 生成当前显示的标题
+             * @return {String} 组合后的标题文本
+             */
+            currentTitle: function() {
+                const type = this.isPersonal ? '个人' : '团队';
+                const group = this.activeGroup.replace(/[a-zA-Z]/g, '');
+                return `${type}成绩排名`;
+            },
+            /**
+             * 排序后的数据（按排名升序）
+             * @return {Array} 排序后的数据
+             */
+            sortedData: function() {
+                return [...this.currentData].sort((a, b) => a.ranking - b.ranking);
+            }
+        },
+        methods: {
+            /**
+             * 获取数据方法
+             * 根据当前选中的组别从后端API获取数据
+             */
+            fetchData: function() {
+                this.loading = true;
+                this.error = '';
+
+                // 从activeGroup中解析类型和组别
+                // 示例：personalA -> type=personal, group=A
+                const [type, group] = this.activeGroup.split(/(?=[A-Z])/);
+
+                // 构建API端点URL
+                const endpoint = type.toLowerCase();
+                const apiUrl = `http://localhost:9007/api/scores/${endpoint}/${group}`;
+                // const apiUrl = `http://192.168.1.5:9007/api/scores/${endpoint}/${group}`;
+
+                // 使用axios发送GET请求
+                axios.get(apiUrl)
+                    .then(response => {
+                        // 请求成功处理
+                        this.currentData = response.data.map(item => ({
+                            ...item,
+                            // 统一name字段
+                            name: item.name || item.teamName
+                        }));
+                    })
+                    .catch(error => {
+                        // 错误处理
+                        this.error = `数据加载失败: ${error.message}`;
+                        console.error('API请求错误:', error);
+                    })
+                    .finally(() => {
+                        // 无论成功失败都关闭加载状态
+                        this.loading = false;
+                    });
+            }
+        },
+        // 页面加载完成后自动获取数据
+        mounted: function() {
+            this.fetchData();
+        }
+    });
+</script>
+</body>
+</html>
